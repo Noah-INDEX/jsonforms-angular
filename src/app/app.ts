@@ -21,15 +21,17 @@ import { JsonFormsAngularMaterialModule, angularMaterialRenderers } from '@jsonf
   styles: [`
     .grid { height: 100vh; display: grid; gap: 12px; padding: 12px; box-sizing: border-box;
             grid-template-columns: 1fr 1fr 1.2fr; }
-    mat-card { display: flex; flex-direction: column; min-width: 0; }
+    mat-card { display: flex; flex-direction: column; min-width: 0; overflow: auto; }
     .fill { width: 100%; flex: 1; }
     textarea { height: 100%; }
     .error { color: #c00; font-size: 12px; min-height: 1.2em; white-space: pre-wrap; }
-    pre { margin: 8px 0 0; font-size: 12px; overflow: auto; }
+    pre { margin: 8px 0 0; font-size: 12px; overflow: auto; background: #1e1e1e; padding: 12px; border-radius: 4px; }
+    .data-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .data-title { font-weight: 500; margin-bottom: 8px; }
   `],
   template: `
     <div class="grid">
-      <mat-card>
+      <mat-card class="schema-card">
         <mat-card-title>Schema (JSON Schema)</mat-card-title>
         <mat-form-field class="fill" appearance="outline">
           <textarea matInput cdkTextareaAutosize [(ngModel)]="schemaText" (ngModelChange)="parseSchema()"></textarea>
@@ -37,7 +39,7 @@ import { JsonFormsAngularMaterialModule, angularMaterialRenderers } from '@jsonf
         <div class="error">{{ schemaErr }}</div>
       </mat-card>
 
-      <mat-card>
+      <mat-card class="ui-card">
         <mat-card-title>UI Schema</mat-card-title>
         <mat-form-field class="fill" appearance="outline">
           <textarea matInput cdkTextareaAutosize [(ngModel)]="uiText" (ngModelChange)="parseUi()"></textarea>
@@ -53,10 +55,13 @@ import { JsonFormsAngularMaterialModule, angularMaterialRenderers } from '@jsonf
           [schema]="schema"
           [uischema]="uischema"
           [renderers]="renderers"
-          (dataChange)="data = $event.data"
+          (dataChange)="onDataChange($event)"
         ></jsonforms>
 
-        <pre>{{ data | json }}</pre>
+        <div class="data-section">
+          <div class="data-title">Data</div>
+          <pre>{{ data | json }}</pre>
+        </div>
       </mat-card>
     </div>
   `
@@ -96,5 +101,10 @@ export class App {
   parseUi() {
     try { this.uischema = JSON.parse(this.uiText); this.uiErr = ''; }
     catch (e: any) { this.uiErr = e?.message ?? String(e); }
+  }
+  
+  onDataChange(event: any) {
+    this.data = event.data || event;
+    console.log('Data changed:', this.data);
   }
 }
