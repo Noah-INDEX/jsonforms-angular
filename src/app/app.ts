@@ -2,6 +2,9 @@ import { Component, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatCardModule } from '@angular/material/card';
@@ -189,6 +192,12 @@ import { PlaceholderControl, placeholderControlTester } from './renderers/placeh
   `
 })
 export class App {
+  // AJV Instanz für Validierung (ohne Default-Werte)
+  private readonly ajv: Ajv;
+  
+  // AJV Instanz zum Initialisieren von Default-Werten
+  private readonly ajvWithDefaults: Ajv;
+
   readonly renderers = [
     ...angularMaterialRenderers,
     { tester: placeholderControlTester, renderer: PlaceholderControl },
@@ -217,13 +226,30 @@ export class App {
 
   schema: any = JSON.parse(this.schemaText);
   uischema: any = JSON.parse(this.uiText);
-  data: any = {};
+  data: any = this.getFormDataWithDefaults(this.schema);
   schemaErr = '';
   uiErr = '';
 
   leftPct = 25;  
   rightPct = 45; 
   activeResizer: 'left' | 'right' | null = null;
+
+  constructor() {
+    // AJV ohne useDefaults für normale Validierung
+    this.ajv = new Ajv({
+      schemaId: 'id',
+      allErrors: true,
+    });
+    addFormats(this.ajv);
+
+    // AJV mit useDefaults zum Setzen von Default-Werten
+    this.ajvWithDefaults = new Ajv({
+      schemaId: 'id',
+      allErrors: true,
+      useDefaults: true,  // Diese Option aktiviert das Setzen von Defaults
+    });
+    addFormats(this.ajvWithDefaults);
+  }
 
   get gridCols() {
     return `${this.leftPct}% max-content minmax(0, 1fr) max-content ${this.rightPct}%`;
@@ -271,8 +297,104 @@ export class App {
     this.activeResizer = null;
   }
 
-  parseSchema() { try { this.schema = JSON.parse(this.schemaText); this.schemaErr = ''; } catch (e: any) { this.schemaErr = e?.message ?? String(e); } }
-  parseUi() { try { this.uischema = JSON.parse(this.uiText); this.uiErr = ''; } catch (e: any) { this.uiErr = e?.message ?? String(e); } }
-  onDataChange(event: any) { this.data = event.data || event; }
-  refreshPreview() { this.data = {}; }
+  /**
+   * Erstellt ein Objekt mit allen Default-Werten aus dem Schema.
+   * Verarbeitet spezielle Default-Werte wie "today" für Datumsfelder.
+   */
+  getFormDataWithDefaults(schema: any): any {
+    if (!schema || typeof schema !== 'object') {
+      return {};
+    }
+
+    // Schritt 1: Vorverarbeitung für spezielle Werte (z.B. "today" für Datum)
+    const processedSchema = this.preprocessSchemaDefaults(schema);
+
+    // Schritt 2: AJV mit useDefaults nutzen, um Default-Werte zu setzen
+    const emptyData = {};
+    try {
+      const validate = this.ajvWithDefaults.compile(processedSchema);
+      validate(emptyData);
+    } catch (e) {
+      // Bei Fehler einfach leeres Objekt zurückgeben
+      console.warn('Fehler beim Setzen der Default-Werte:', e);
+    }
+
+    return emptyData;
+  }
+
+  /**
+   * Durchläuft das Schema und ersetzt spezielle Default-Werte.
+   * Z.B. "today" wird durch das aktuelle Datum ersetzt.
+   */
+  private preprocessSchemaDefaults(schema: any): any {
+    // Deep Clone des Schemas, um das Original nicht zu mutieren
+    const clonedSchema = JSON.parse(JSON.stringify(schema));
+
+    const processProperties = (obj: any) => {
+      if (!obj || typeof obj !== 'object') return;
+
+      // Properties durchlaufen
+      if (obj.properties) {
+        for (const key in obj.properties) {
+          const prop = obj.properties[key];
+          
+          // "today" für Datumsfelder durch aktuelles Datum ersetzen
+          if (prop.type === 'string' &&
+              prop.format === 'date' &&
+              prop.default === 'today') {
+            prop.default = new Date().toISOString().split('T')[0];
+          }
+
+          // Rekursiv in verschachtelte Objekte gehen
+          if (prop.type === 'object') {
+            processProperties(prop);
+          }
+
+          // Arrays mit Items-Schema verarbeiten
+          if (prop.type === 'array' && prop.items) {
+            processProperties(prop.items);
+          }
+        }
+      }
+
+      // AllOf, AnyOf, OneOf verarbeiten
+      ['allOf', 'anyOf', 'oneOf'].forEach(keyword => {
+        if (Array.isArray(obj[keyword])) {
+          obj[keyword].forEach((subschema: any) => processProperties(subschema));
+        }
+      });
+    };
+
+    processProperties(clonedSchema);
+    return clonedSchema;
+  }
+
+  parseSchema() { 
+    try { 
+      this.schema = JSON.parse(this.schemaText); 
+      this.schemaErr = ''; 
+      // Data mit Default-Werten neu initialisieren
+      this.data = this.getFormDataWithDefaults(this.schema);
+    } catch (e: any) { 
+      this.schemaErr = e?.message ?? String(e); 
+    } 
+  }
+  
+  parseUi() { 
+    try { 
+      this.uischema = JSON.parse(this.uiText); 
+      this.uiErr = ''; 
+    } catch (e: any) { 
+      this.uiErr = e?.message ?? String(e); 
+    } 
+  }
+  
+  onDataChange(event: any) { 
+    this.data = event.data || event; 
+  }
+  
+  refreshPreview() { 
+    // Data mit Default-Werten aus dem Schema zurücksetzen
+    this.data = this.getFormDataWithDefaults(this.schema); 
+  }
 }
