@@ -185,7 +185,21 @@ import {
   template: `
     <div class="grid" [style.grid-template-columns]="gridCols">
       <mat-card class="schema-card">
-        <div class="card-header"><mat-card-title>Schema</mat-card-title></div>
+        <div class="card-header">
+          <mat-card-title>Schema</mat-card-title>
+          <div>
+            <button mat-icon-button (click)="copySchema()" title="copy Schema">
+              <mat-icon>content_copy</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              (click)="clearSchema()"
+              title="clear Schema"
+            >
+              <mat-icon>clear</mat-icon>
+            </button>
+          </div>
+        </div>
 
         <div class="scroll-content">
           <mat-form-field
@@ -215,6 +229,22 @@ import {
       <mat-card class="ui-card">
         <div class="card-header">
           <mat-card-title>UI Schema</mat-card-title>
+          <div>
+            <button
+              mat-icon-button
+              (click)="copyUiSchema()"
+              title="copy UI Schema"
+            >
+              <mat-icon>content_copy</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              (click)="clearUiSchema()"
+              title="clear UI Schema"
+            >
+              <mat-icon>clear</mat-icon>
+            </button>
+          </div>
         </div>
 
         <div class="scroll-content">
@@ -248,7 +278,7 @@ import {
           <button
             mat-icon-button
             (click)="refreshPreview()"
-            title="refresh preview"
+            title="refresh Preview"
           >
             <mat-icon>refresh</mat-icon>
           </button>
@@ -569,6 +599,28 @@ export class App {
   refreshPreview() {
     // Data mit Default-Werten aus dem Schema zurücksetzen
     this.data = this.getFormDataWithDefaults(this.schema)
+  }
+
+  copySchema() {
+    navigator.clipboard.writeText(this.schemaText).catch((err) => {
+      console.error('Fehler beim Kopieren des Schemas:', err)
+    })
+  }
+
+  clearSchema() {
+    this.schemaText = ''
+    this.parseSchema()
+  }
+
+  copyUiSchema() {
+    navigator.clipboard.writeText(this.uischemaText).catch((err) => {
+      console.error('Fehler beim Kopieren des UI Schemas:', err)
+    })
+  }
+
+  clearUiSchema() {
+    this.uischemaText = ''
+    this.parseUi()
   }
 
   /**
